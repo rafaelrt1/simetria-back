@@ -8,6 +8,9 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
 
+// const hostHome= '10.0.0.19';
+// const hostBruna = '192.168.0.199';
+
 app.use(cors());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
