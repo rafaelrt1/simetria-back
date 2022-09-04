@@ -13,11 +13,25 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 router.get('/servicos', async (req, res, next) => {
     try {
-        connection.query("SELECT fs.idServico, s.nome as `servico`, s.precoMinimo, s.precoMaximo, s.duracaoMaxima, s.duracaoMaxima, f.nome as `funcionario` FROM funcionarios_servicos fs join servicos s on s.id = fs.idServico join funcionarios f on f.id = fs.idFuncionario where f.ativo = true order by s.nome;", function (err, rows, fields) {
+        connection.query("SELECT fs.idFuncionario, fs.idServico, s.nome as `servico`, s.precoMinimo, s.precoMaximo, s.duracaoMaxima, s.duracaoMaxima, f.nome as `funcionario` FROM funcionarios_servicos fs join servicos s on s.id = fs.idServico join funcionarios f on f.id = fs.idFuncionario where f.ativo = true order by s.nome", async function (err, rows, fields) {
             if (err)
                 res.json({ error: "Não foi possível realizar esta operação" });
-            else
+            else {
+                const db = require('../db');
+                const conn = await db.connect();
+                const [options] = await conn.query("SELECT s.id, s.nome as `servico`, co.nome FROM servicos s join service_customer_options sco on sco.idServico=s.id join customer_options co on sco.idOpcao=co.id order by s.nome")
+                rows.forEach((service) => {
+                    service.options = [];
+                    options.forEach((option) => {
+                        if (service.idServico === option.id) {
+                            return service.options.push(option.nome);
+                        }
+                    });
+                });
+                console.log(rows);
                 res.json(rows);
+            }
+                
         }).end;
     } catch (e) {
         console.error(e);
