@@ -8,8 +8,41 @@ require('dotenv').config();
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-// const hostHome= '10.0.0.19';
-// const hostBruna = '192.168.0.199';
+router.get('/horarios', async (req, res, next) => {
+    try {
+        let profissional = req.query.profissional;
+        let servico = req.query.servico;
+        let data = req.query.data;
+        let formattedDate = new Date(data+'UTC-3');
+
+        const isValidDate = () => {
+            return (
+            formattedDate >= new Date().setHours(0, 0, 0, 0) &&
+            formattedDate.getDay() !== 0 &&
+            formattedDate.getDay() !== 1
+            );
+        };
+
+        let isValid = profissional && servico && isValidDate();
+
+        if (!isValid) {
+            return res.json({error: "Busca inválida"});
+        }
+
+        formattedDate = formattedDate.getFullYear() +'-' + (formattedDate.getMonth()+1) +'-' + formattedDate.getDate();
+   
+        connection.query("SELECT * FROM agendamentos where idFuncionario = ? and idServico = ? and data = ?;", [profissional, servico, formattedDate], async function (err, rows, fields) {
+            if (err)
+                res.json({ error: "Não foi possível realizar esta operação" });
+            else {
+                res.json(rows);
+            }
+                
+        }).end;
+    } catch (e) {
+        console.error(e);
+    }
+});
 
 router.get('/servicos', async (req, res, next) => {
     try {
@@ -66,62 +99,5 @@ router.post('/register', function (req, res, next) {
     }
 });
 
-// passport.use(new GoogleStrategy({
-//     clientID: GOOGLE_CLIENT_ID,
-//     clientSecret: GOOGLE_CLIENT_SECRET,
-//     callbackURL: `http://localhost:5000/auth/google/callback`,
-//     passReqToCallback: true
-// }, function verify(issuer, profile, cb) {
-//     console.log(issuer) 
-//     console.log(profile)
-//     console.log(cb)
-//     // db.get('SELECT * FROM google_credentials WHERE provider = ? AND subject = ?', 
-//     //     [issuer, profile.id ], function(err, row) {
-//     //         if (err) { return cb(err); }
-//     //         if (!row) {
-//     //             db.run('INSERT INTO usuarios (name) VALUES (?)', [profile.displayName], function(err) {
-//     //                 if (err) { return cb(err); }
-//     //                 var id = this.lastID;
-//     //                 db.run('INSERT INTO google_credentials (user_id, provider, subject) VALUES (?, ?, ?)', 
-//     //                 [
-//     //                     id,
-//     //                     issuer,
-//     //                     profile.id
-//     //                 ], function(err) {
-//     //                     if (err) { return cb(err); }
-//     //                     var user = {
-//     //                         id: id,
-//     //                         name: profile.displayName
-//     //                     };
-//     //                     return cb(null, user);
-//     //                 });
-//     //             });
-//     //         } else {
-//     //             db.get('SELECT * FROM usuarios WHERE id = ?', [ row.user_id ], function(err, row) {
-//     //                 if (err) { return cb(err); }
-//     //                 if (!row) { return cb(null, false); }
-//     //                 return cb(null, row);
-//     //             });
-//     //         }
-//     //     }
-//     // )
-//     }
-// ));
-
-// router.get('/auth/google',
-//   passport.authenticate('google', { scope : ['profile', 'email']}, function verify(issuer, profile, cb) {
-//     console.log(issuer, profile, cb)
-//  })
-// );
-  
-// router.get('/auth/google/callback',
-//   passport.authenticate('google', { successRedirect: 'http://localhost:5000/', 
-//   failureRedirect: "http://localhost:5000/"  }),
-//   function(req, res) {
-//     // Successful authentication, redirect success.
-//     console.log(res)
-//     res.redirect("http://localhost:5000/");
-//     res.json({message: "Success"});
-// });
 
 module.exports = router;
