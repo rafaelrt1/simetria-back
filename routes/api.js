@@ -72,12 +72,27 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 startTimeHours,
                 startTimeMinutes
             );
-            const dateEnd = moment(dateBegining)
+
+            let testeDateBegining = moment(
+                date.setHours(startTimeHours, startTimeMinutes)
+            );
+
+            const dateEnd = moment(testeDateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
+            let times = [];
+
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
-                return timesAvailable.push(day.time);
+                times.push(testeDateBegining);
+                for (let i = 0; dateEnd >= testeDateBegining; i++) {
+                    testeDateBegining = moment(testeDateBegining).add(
+                        30,
+                        "minutes"
+                    );
+                    times.push(testeDateBegining);
+                }
+                return timesAvailable.push({ time: day.time, hours: times });
             }
         });
     } else {
@@ -97,12 +112,20 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 startTimeHours,
                 startTimeMinutes
             );
-            const dateEnd = moment(dateBegining)
+            let testeDateBegining = moment(
+                date.setHours(startTimeHours, startTimeMinutes)
+            );
+            const dateEnd = moment(testeDateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
-                console.log(dateBegining);
+                for (let i = 0; dateEnd >= testeDateBegining; i++) {
+                    testeDateBegining = moment(testeDateBegining).add(
+                        30,
+                        "minutes"
+                    );
+                }
                 return timesAvailable.push(day.time);
             }
         });
@@ -122,11 +145,21 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 startTimeHours,
                 startTimeMinutes
             );
-            const dateEnd = moment(dateBegining)
+
+            let testeDateBegining = moment(
+                date.setHours(startTimeHours, startTimeMinutes)
+            );
+            const dateEnd = moment(testeDateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
+                for (let i = 0; dateEnd >= testeDateBegining; i++) {
+                    testeDateBegining = moment(testeDateBegining).add(
+                        30,
+                        "minutes"
+                    );
+                }
                 return timesAvailable.push(day.time);
             }
         });
@@ -154,14 +187,15 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
     if (!timeReserved.length) {
         response = timesAvailable;
     }
+
     timesAvailable.forEach((availableTime, index) => {
         timeReserved.forEach((unavailableTime) => {
             let beginTimeReserved = moment(unavailableTime.begin);
             let endTimeReserved = moment(unavailableTime.end);
             let timeBegin = moment(
                 new Date(date).setHours(
-                    availableTime.split(":")[0],
-                    availableTime.split(":")[1]
+                    availableTime.time.split(":")[0],
+                    availableTime.time.split(":")[1]
                 )
             );
 
@@ -169,16 +203,16 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
-            // for (let i = 0; timeEnd !== timeBegin; ) {
-            //     timeEnd = timeEnd.add(30, "minutes");
-            //     console.log(timeBegin === timeEnd);
-            // }
+            let alreadyReservedInterval = availableTime.hours.some((hour) => {
+                return hour.isBetween(beginTimeReserved, endTimeReserved);
+            });
 
             if (
                 !timeAlreadyReserved(timeBegin, timeEnd, timeReserved) &&
-                !pushedValue(response, availableTime)
+                !alreadyReservedInterval &&
+                !pushedValue(response, availableTime.time)
             ) {
-                response.push(availableTime);
+                response.push(availableTime.time);
             }
         });
     });
