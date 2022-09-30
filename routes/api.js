@@ -102,6 +102,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 .add(minutesDuration, "minutes");
 
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
+                console.log(dateBegining);
                 return timesAvailable.push(day.time);
             }
         });
@@ -168,10 +169,10 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
-            for (let i = 0; timeEnd !== timeBegin; ) {
-                timeEnd = timeEnd.add(30, "minutes");
-                console.log(timeBegin === timeEnd);
-            }
+            // for (let i = 0; timeEnd !== timeBegin; ) {
+            //     timeEnd = timeEnd.add(30, "minutes");
+            //     console.log(timeBegin === timeEnd);
+            // }
 
             if (
                 !timeAlreadyReserved(timeBegin, timeEnd, timeReserved) &&
