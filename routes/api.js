@@ -45,6 +45,12 @@ let WEEKEND_DAYS_OPENING_HOURS_MORNING = [
     { time: "11:30" },
 ];
 
+const alreadyHasProfessional = (timeReserved, timesReserved) => {
+    return timesReserved.some((time) => {
+        return time.id === timeReserved.id;
+    });
+};
+
 const getTimeOptions = (date, serviceDuration, timeReserved) => {
     const weekDay = new Date(date).getDay();
     const hoursDuration = serviceDuration.split(":")[0];
@@ -124,54 +130,58 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             }
         });
     }
-    console.log(moment(date));
-    // console.log(
-    //     timesAvailable,
-    //     moment(
-    //         date.setHours(
-    //             timesAvailable[0].split(":")[0],
-    //             timesAvailable[0].split(":")[1]
-    //         )
-    //     )
-    // );
-    timesAvailable.map((availableTime) => {
-        timeReserved.map((unavailableTime) => {
-            let teste = moment(new Date(date));
-            // teste.setHours(
-            //     availableTime.split(":")[0],
-            //     availableTime.split(":")[1]
-            // );
-            // console.log(teste);
-            // console.log(
-            //     "availableTime: ",
+    let response = [];
 
-            //     moment(new Date(date))
-            // );
-            // console.log(
-            //     "unavailableTime.dataInicio: ",
-            //     moment(unavailableTime.dataInicio)
-            // );
-            // console.log(
-            //     "unavailableTime.dataFim: ",
-            //     moment(unavailableTime.dataFim)
-            // );
+    const pushedValue = (timesAvailable, availableTime) => {
+        return timesAvailable.some((time) => {
+            return time === availableTime;
+        });
+    };
+
+    const timeAlreadyReserved = (timeBegin, timeEnd, timeReserved) => {
+        return timeReserved.some((unavailableTime) => {
+            let beginTimeReserved = moment(unavailableTime.begin);
+            let endTimeReserved = moment(unavailableTime.end);
+            return (
+                timeBegin.isBetween(beginTimeReserved, endTimeReserved) ||
+                timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
+                moment(timeBegin).isSame(beginTimeReserved)
+            );
+        });
+    };
+
+    if (!timeReserved.length) {
+        response = timesAvailable;
+    }
+    timesAvailable.forEach((availableTime, index) => {
+        timeReserved.forEach((unavailableTime) => {
+            let beginTimeReserved = moment(unavailableTime.begin);
+            let endTimeReserved = moment(unavailableTime.end);
+            let timeBegin = moment(
+                new Date(date).setHours(
+                    availableTime.split(":")[0],
+                    availableTime.split(":")[1]
+                )
+            );
+
+            let timeEnd = moment(timeBegin)
+                .add(hoursDuration, "hours")
+                .add(minutesDuration, "minutes");
+
+            for (let i = 0; timeEnd !== timeBegin; ) {
+                timeEnd = timeEnd.add(30, "minutes");
+                console.log(timeBegin === timeEnd);
+            }
+
             if (
-                moment(
-                    new Date(date).setHours(availableTime.split(":")[0])
-                ).isBetween(
-                    moment(unavailableTime.dataInicio),
-                    moment(unavailableTime.dataFim)
-                ) ||
-                moment(
-                    new Date(date).setHours(availableTime.split(":")[0])
-                ).isSame(moment(unavailableTime.dataInicio))
+                !timeAlreadyReserved(timeBegin, timeEnd, timeReserved) &&
+                !pushedValue(response, availableTime)
             ) {
-                console.log("Indisponível");
+                response.push(availableTime);
             }
         });
     });
-    // console.log(timeReserved);
-    return timesAvailable;
+    return response;
 };
 
 const mountAvailableTimes = async (servico, timeReserved, date) => {
@@ -195,50 +205,18 @@ const mountAvailableTimes = async (servico, timeReserved, date) => {
         });
     });
     response.forEach((employee) => {
-        // if (weekDay !== 6) {
-        //     return employee.availableTimes.push();
-        // } else {
-        console.log(new Date(date + "UTC-3"));
+        let filteredTimes = timeReserved.filter((time) => {
+            return time.id === employee.employee;
+        });
         employee.availableTimes = getTimeOptions(
-            new Date(date + "UTC-3"),
+            date,
             serviceDuration[0].tempo,
-            timeReserved
+            filteredTimes[0] ? filteredTimes[0].professionalReservedTimes : []
         );
         // }
     });
     return response;
 };
-
-// const mountFullAvailableTimes = async (servico, weekDay) => {
-//     const conn = await db.connect();
-//     const [serviceDuration] = await conn.query(
-//         `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'tempo' FROM servicos where id = ?`,
-//         [servico]
-//     );
-//     const [employeesAvailable] = await conn.query(
-//         `SELECT f.id, f.nome as 'name' FROM servicos s join funcionarios_servicos fs on fs.idServico = s.id join funcionarios f on f.id = fs.idFuncionario where s.id = ?`,
-//         [servico]
-//     );
-
-//     let response = [];
-//     employeesAvailable.forEach((employee) => {
-//         response.push({
-//             employee: employee.id,
-//             employeeName: employee.name,
-//             availableTimes: [],
-//         });
-//     });
-//     response.forEach((employee) => {
-//         // if (weekDay !== 6) {
-//         //     return employee.availableTimes.push();
-//         // } else {
-//         return employee.availableTimes.push(
-//             getTimeOptions(weekDay, serviceDuration[0].tempo)
-//         );
-//         // }
-//     });
-//     return response;
-// };
 
 router.get("/horarios", async (req, res, next) => {
     try {
@@ -246,7 +224,7 @@ router.get("/horarios", async (req, res, next) => {
         let service = req.query.servico;
         let date = req.query.data;
         // let formattedDate = new Date(data+'UTC-3');
-        let timeReserved = [];
+        let timesReserved = [];
 
         const isValidDate = () => {
             return (
@@ -267,25 +245,52 @@ router.get("/horarios", async (req, res, next) => {
         const conn = await db.connect();
 
         if (!professional) {
+            // const [employeeTimeReserved] = await conn.query(
+            //     `SELECT f.id, f.nome, a.dataInicio, a.dataFim FROM funcionarios f join funcionarios_servicos fs on f.id = fs.idFuncionario join agendamentos a on a.idServico = fs.idServico and f.id = a.idFuncionario where fs.idServico=? and a.data=?`,
+            //     [service, date]
+            // );
             const [employeeTimeReserved] = await conn.query(
-                `SELECT f.id, f.nome, a.dataInicio, a.dataFim FROM funcionarios f join funcionarios_servicos fs on f.id = fs.idFuncionario join agendamentos a on a.idServico = fs.idServico and f.id = a.idFuncionario where fs.idServico=? and a.data=?`,
-                [service, date]
+                `SELECT f.id, f.nome, a.dataInicio, a.dataFim FROM funcionarios f join agendamentos a on f.id = a.idFuncionario where a.data=?`,
+                [date]
             );
-            if (employeeTimeReserved[0]?.id) {
-                employeeTimeReserved[0].dataInicio = new Date(
-                    `${
-                        employeeTimeReserved[0].dataInicio
-                            .toString()
-                            .split(".")[0]
-                    }.-300Z`
-                );
-                employeeTimeReserved[0].dataFim = new Date(
-                    `${
-                        employeeTimeReserved[0].dataFim.toString().split(".")[0]
-                    }.-300Z`
-                );
-                timeReserved.push(employeeTimeReserved[0]);
-            }
+
+            employeeTimeReserved.forEach((timeReserved) => {
+                if (
+                    timeReserved?.dataInicio &&
+                    timeReserved?.dataFim &&
+                    !alreadyHasProfessional(timeReserved, timesReserved)
+                ) {
+                    timesReserved.push({
+                        id: timeReserved.id,
+                        professionalReservedTimes: [],
+                    });
+                }
+                // timesReserved.forEach((professional) => {
+                //     if (professional.id === timeReserved.id) {
+                //         professional.professionalReservedTimes.push({
+                //             begin: timeReserved.dataInicio,
+                //             end: timeReserved.dataFim,
+                //         });
+                //     }
+                // });
+            });
+
+            const getFilteredService = (professional) => {
+                let filteredTime = employeeTimeReserved.filter((time) => {
+                    return time.id === professional.id;
+                });
+                return filteredTime;
+            };
+
+            timesReserved.forEach((professional) => {
+                let services = getFilteredService(professional);
+                services.forEach((service) => {
+                    professional.professionalReservedTimes.push({
+                        begin: service.dataInicio,
+                        end: service.dataFim,
+                    });
+                });
+            });
 
             // let select = `SELECT * FROM agendamentos where data = ?`;
             // let indexEmployee;
@@ -306,25 +311,14 @@ router.get("/horarios", async (req, res, next) => {
                 [date, professional]
             );
             if (employeeTimeReserved[0]?.id) {
-                employeeTimeReserved[0].dataInicio = new Date(
-                    `${
-                        employeeTimeReserved[0].dataInicio
-                            .toString()
-                            .split(".")[0]
-                    }.-300Z}`
-                );
-                employeeTimeReserved[0].dataFim = new Date(
-                    `${
-                        employeeTimeReserved[0].dataFim.toString().split(".")[0]
-                    }.-300Z}`
-                );
-                timeReserved.push(employeeTimeReserved[0]);
+                timesReserved.push(employeeTimeReserved[0]);
             }
         }
 
+        date = new Date(date + "UTC-3").setHours(10);
         let response = await mountAvailableTimes(
             service,
-            timeReserved,
+            timesReserved,
             new Date(date)
         );
 
