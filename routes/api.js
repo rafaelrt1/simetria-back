@@ -167,7 +167,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
     };
 
     timesAvailable.forEach((availableTime, index) => {
-        if (!timeReserved.length) {
+        if (!timeReserved?.length) {
             response.push(availableTime.time);
         } else {
             timeReserved.forEach((unavailableTime) => {
@@ -235,9 +235,14 @@ const mountAvailableTimes = async (servico, timeReserved, date) => {
             serviceDuration[0].tempo,
             filteredTimes[0] ? filteredTimes[0].professionalReservedTimes : []
         );
-        // }
     });
-    return response;
+    let result = response.filter((employee) => {
+        return employee.availableTimes?.length > 0;
+    });
+    if (!result[0]) {
+        return { error: "Nenhum horário disponível" };
+    }
+    return result;
 };
 
 router.get("/horarios", async (req, res, next) => {
@@ -245,7 +250,6 @@ router.get("/horarios", async (req, res, next) => {
         let professional = req.query.profissional;
         let service = req.query.servico;
         let date = req.query.data;
-        // let formattedDate = new Date(data+'UTC-3');
         let timesReserved = [];
 
         const isValidDate = () => {
@@ -262,15 +266,9 @@ router.get("/horarios", async (req, res, next) => {
             return res.json({ error: "Busca inválida" });
         }
 
-        // formattedDate = formattedDate.getFullYear() +'-' + (formattedDate.getMonth()+1) +'-' + formattedDate.getDate();
-
         const conn = await db.connect();
 
         if (!professional) {
-            // const [employeeTimeReserved] = await conn.query(
-            //     `SELECT f.id, f.nome, a.dataInicio, a.dataFim FROM funcionarios f join funcionarios_servicos fs on f.id = fs.idFuncionario join agendamentos a on a.idServico = fs.idServico and f.id = a.idFuncionario where fs.idServico=? and a.data=?`,
-            //     [service, date]
-            // );
             const [employeeTimeReserved] = await conn.query(
                 `SELECT f.id, f.nome, a.dataInicio, a.dataFim FROM funcionarios f join agendamentos a on f.id = a.idFuncionario where a.data=?`,
                 [date]
@@ -287,14 +285,6 @@ router.get("/horarios", async (req, res, next) => {
                         professionalReservedTimes: [],
                     });
                 }
-                // timesReserved.forEach((professional) => {
-                //     if (professional.id === timeReserved.id) {
-                //         professional.professionalReservedTimes.push({
-                //             begin: timeReserved.dataInicio,
-                //             end: timeReserved.dataFim,
-                //         });
-                //     }
-                // });
             });
 
             const getFilteredService = (professional) => {
@@ -313,28 +303,28 @@ router.get("/horarios", async (req, res, next) => {
                     });
                 });
             });
-
-            // let select = `SELECT * FROM agendamentos where data = ?`;
-            // let indexEmployee;
-            // employeesAvailable.forEach(async(employee, index) => {
-            //     if (index === 0)
-            //         select = select + ' and idFuncionario = ?';
-            //     else {
-            //         select = select + ' or idFuncionario = ?';
-            //     }
-            //     const [employeeTimeReserved] = await conn.query(select, [data, employee.id]);
-            //     // indexEmployee = employee;
-            //     // timeReserved.push(employeeTimeReserved);
-            // })
-            // const [reservedTimes] = await conn.query(select, [data, employee])
         } else {
             const [employeeTimeReserved] = await conn.query(
                 `SELECT * FROM agendamentos where data = ? and idFuncionario = ?`,
                 [date, professional]
             );
-            if (employeeTimeReserved[0]?.id) {
-                timesReserved.push(employeeTimeReserved[0]);
+
+            if (
+                employeeTimeReserved[0]?.dataInicio &&
+                employeeTimeReserved[0]?.dataFim
+            ) {
+                timesReserved.push({
+                    id: employeeTimeReserved[0].id,
+                    professionalReservedTimes: [],
+                });
             }
+
+            employeeTimeReserved.forEach((time) => {
+                timesReserved[0].professionalReservedTimes.push({
+                    begin: time.dataInicio,
+                    end: time.dataFim,
+                });
+            });
         }
 
         date = new Date(date + "UTC-3").setHours(10);
@@ -345,6 +335,77 @@ router.get("/horarios", async (req, res, next) => {
         );
 
         res.json(response);
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.post("/horario", async (req, res, next) => {
+    try {
+        let professional = parseInt(req.body.professional);
+        let service = req.body.service;
+        let date = req.body.date;
+        let chosenTime = req.body.time;
+
+        let timesReserved = [];
+
+        const isValidDate = () => {
+            return (
+                new Date(date + "UTC-3") >= new Date().setHours(0, 0, 0, 0) &&
+                new Date(date + "UTC-3").getDay() !== 0 &&
+                new Date(date + "UTC-3").getDay() !== 1
+            );
+        };
+
+        let isValid = service && isValidDate();
+
+        if (!isValid) {
+            return res.json({ error: "Busca inválida" });
+        }
+
+        const conn = await db.connect();
+        const [serviceDuration] = await conn.query(
+            `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'duracao' from servicos where id = ?;`,
+            [service]
+        );
+
+        const [employeeTimeReserved] = await conn.query(
+            `SELECT * FROM agendamentos where data = ? and idFuncionario = ?`,
+            [date, professional]
+        );
+
+        if (
+            employeeTimeReserved[0]?.dataInicio &&
+            employeeTimeReserved[0]?.dataFim
+        ) {
+            timesReserved.push({
+                id: employeeTimeReserved[0].id,
+                professionalReservedTimes: [],
+            });
+        }
+
+        employeeTimeReserved.forEach((time) => {
+            timesReserved[0].professionalReservedTimes.push({
+                begin: time.dataInicio,
+                end: time.dataFim,
+            });
+        });
+
+        date = new Date(date + "UTC-3").setHours(10);
+        let response = await mountAvailableTimes(
+            service,
+            timesReserved,
+            new Date(date)
+        );
+
+        if (response[0].availableTimes.indexOf(chosenTime) > -1) {
+            await conn.query(
+                `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'duracao' from servicos where id = ?;`,
+                [service]
+            );
+        } else {
+            res.json({ nextAvailable: response[0].availableTimes[0] });
+        }
     } catch (e) {
         console.error(e);
     }
