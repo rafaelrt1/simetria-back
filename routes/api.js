@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt");
 require("dotenv").config();
 const db = require("../db");
 const moment = require("moment");
+const { response } = require("express");
 
 let DEFAULT_CLOSING_TIME_MORNING_WEEKEND = "12:00";
 let DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND = "17:00";
@@ -49,6 +50,18 @@ const alreadyHasProfessional = (timeReserved, timesReserved) => {
     return timesReserved.some((time) => {
         return time.id === timeReserved.id;
     });
+};
+
+const checkPermission = async (token) => {
+    const conn = await db.connect();
+    if (!token) return false;
+    else {
+        const [userData] = await conn.query(
+            `SELECT data FROM sessions where session_id = ?`,
+            [token]
+        );
+        return userData?.length;
+    }
 };
 
 const getTimeOptions = (date, serviceDuration, timeReserved) => {
@@ -247,6 +260,11 @@ const mountAvailableTimes = async (servico, timeReserved, date) => {
 
 router.get("/horarios", async (req, res, next) => {
     try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
         let professional = req.query.profissional;
         let service = req.query.servico;
         let date = req.query.data;
@@ -340,8 +358,47 @@ router.get("/horarios", async (req, res, next) => {
     }
 });
 
+router.get("/infos", async (req, res, next) => {
+    try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
+        let professional = req.query.professional;
+        let service = req.query.service;
+        let date = req.query.date;
+
+        const conn = await db.connect();
+        const [infos] = await conn.query(
+            `SELECT f.nome as 'professional', coalesce(s.duracaoMaxima, s.duracaoMinima) as 'duration', s.nome as 'service' from servicos s, funcionarios f where f.id = ? and s.id= ?;`,
+            [professional, service]
+        );
+
+        let timeEnd = moment(date)
+            .add(infos[0].duration.split(":")[0], "hours")
+            .add(infos[0].duration.split(":")[1], "minutes");
+
+        timeEnd = new Date(timeEnd);
+        res.json({
+            professional: infos[0].professional,
+            timeEnd: `${timeEnd.getHours()}:${
+                timeEnd.getMinutes() > 0
+                    ? timeEnd.getMinutes()
+                    : timeEnd.getMinutes() + "0"
+            }`,
+            service: infos[0].service,
+        });
+    } catch (e) {}
+});
+
 router.post("/horario", async (req, res, next) => {
     try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
         let professional = parseInt(req.body.professional);
         let service = req.body.service;
         let date = req.body.date;
@@ -379,7 +436,7 @@ router.post("/horario", async (req, res, next) => {
             employeeTimeReserved[0]?.dataFim
         ) {
             timesReserved.push({
-                id: employeeTimeReserved[0].id,
+                id: employeeTimeReserved[0].idFuncionario,
                 professionalReservedTimes: [],
             });
         }
@@ -398,11 +455,16 @@ router.post("/horario", async (req, res, next) => {
             new Date(date)
         );
 
-        if (response[0].availableTimes.indexOf(chosenTime) > -1) {
-            await conn.query(
-                `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'duracao' from servicos where id = ?;`,
-                [service]
-            );
+        if (response.error) {
+            res.json({ error: "No time available" });
+        }
+
+        if (response[0]?.availableTimes?.indexOf(chosenTime) > -1) {
+            // await conn.query(
+            //     `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'duracao' from servicos where id = ?;`,
+            //     [service]
+            // );
+            res.json({ status: "success" });
         } else {
             res.json({ nextAvailable: response[0].availableTimes[0] });
         }
@@ -413,6 +475,11 @@ router.post("/horario", async (req, res, next) => {
 
 router.get("/servicos", async (req, res, next) => {
     try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
         connection.query(
             "SELECT fs.idFuncionario, fs.idServico, s.nome as `servico`, s.precoMinimo, s.precoMaximo, s.duracaoMinima, s.duracaoMaxima, f.nome as `funcionario`, s.instrucoes, s.complemento FROM funcionarios_servicos fs join servicos s on s.id = fs.idServico join funcionarios f on f.id = fs.idFuncionario where f.ativo = true order by s.nome",
             async function (err, rows, fields) {
@@ -442,6 +509,19 @@ router.get("/servicos", async (req, res, next) => {
     }
 });
 
+router.get("/permission", async (req, res, next) => {
+    try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
+        res.json({});
+    } catch (e) {
+        console.error(e);
+    }
+});
+
 router.post(
     "/login",
     passport.authenticate("local", {
@@ -449,9 +529,27 @@ router.post(
         failureMessage: "Error",
     }),
     function (req, res) {
-        res.json({ message: "Success", session: res.req.sessionID });
+        console.log(res.req.user.nome, res.req.user.id);
+        res.json({
+            message: "Success",
+            session: res.req.sessionID,
+            userData: { name: res.req.user.nome, id: res.req.user.id },
+        });
     }
 );
+
+router.post("/logout", async function (req, res, next) {
+    let session = req.body.token;
+    req.logout(function (err) {
+        return;
+    });
+    const conn = await db.connect();
+    const [serviceDuration] = await conn.query(
+        `DELETE from sessions where session_id = ?;`,
+        [session]
+    );
+    res.json({});
+});
 
 router.post("/register", function (req, res, next) {
     try {
