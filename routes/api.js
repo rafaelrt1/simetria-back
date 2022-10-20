@@ -358,6 +358,52 @@ router.get("/horarios", async (req, res, next) => {
     }
 });
 
+router.post("/google-user", async (req, res, next) => {
+    try {
+        let id = req.body.id;
+        let email = req.body.email;
+        let nome = req.body.nome;
+        let tokenGoogle = req.body.tokenGoogle;
+        const conn = await db.connect();
+
+        const [user] = await conn.query(
+            `SELECT id FROM usuarios where id = ?;`,
+            [id]
+        );
+
+        if (!user?.length) {
+            await conn.query(
+                `INSERT INTO usuarios (id, email, nome, tokenGoogle) values (?, ?, ?, ?);`,
+                [id, email, nome, tokenGoogle]
+            );
+        }
+        await conn.query(
+            `INSERT INTO sessions (session_id, expires, data) values (?, ?, ?);`,
+            [
+                tokenGoogle,
+                1666320206,
+                JSON.stringify({
+                    cookie: {
+                        originalMaxAge: null,
+                        expires: null,
+                        httpOnly: true,
+                        path: "/",
+                    },
+                    passport: { user: user[0].id },
+                }),
+            ]
+        );
+
+        res.json({
+            message: "Success",
+            session: tokenGoogle,
+            userData: { name: req.body.nome },
+        });
+    } catch (e) {
+        console.error(e);
+    }
+});
+
 router.get("/infos", async (req, res, next) => {
     try {
         let isAuthorized = await checkPermission(req.headers.authorization);
@@ -460,10 +506,50 @@ router.post("/horario", async (req, res, next) => {
         }
 
         if (response[0]?.availableTimes?.indexOf(chosenTime) > -1) {
-            // await conn.query(
-            //     `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'duracao' from servicos where id = ?;`,
-            //     [service]
-            // );
+            let formattedDate = `${new Date(date).getFullYear()}-${(
+                new Date(date).getMonth() + 1
+            ).toLocaleString("en-US", {
+                minimumIntegerDigits: 2,
+            })}-${new Date(date).getDate()}`;
+
+            let formattedDateBegin = `${formattedDate} ${chosenTime}:00`;
+
+            const [userData] = await conn.query(
+                `SELECT data FROM sessions where session_id = ?`,
+                [req.headers.authorization]
+            );
+
+            let user = JSON.parse(userData[0].data);
+
+            const [infos] = await conn.query(
+                `SELECT f.nome as 'professional', coalesce(s.duracaoMaxima, s.duracaoMinima) as 'duration', s.nome as 'service' from servicos s, funcionarios f where f.id = ? and s.id= ?;`,
+                [professional, service]
+            );
+
+            let dateInit = req.body.date + " " + chosenTime;
+            let timeEnd = moment(dateInit)
+                .add(infos[0].duration.split(":")[0], "hours")
+                .add(infos[0].duration.split(":")[1], "minutes");
+
+            timeEnd = new Date(timeEnd);
+            let formattedTimeEnd = `${req.body.date} ${timeEnd.getHours()}:${
+                timeEnd.getMinutes() > 0
+                    ? timeEnd.getMinutes()
+                    : timeEnd.getMinutes() + "0"
+            }`;
+
+            await conn.query(
+                `INSERT INTO agendamentos (dataInicio, idFuncionario, idServico, dataFim, data, cliente) values (?, ?, ?, ?, ?, ?);`,
+                [
+                    formattedDateBegin,
+                    professional,
+                    service,
+                    formattedTimeEnd,
+                    formattedDate,
+                    user.passport.user,
+                ]
+            );
+
             res.json({ status: "success" });
         } else {
             res.json({ nextAvailable: response[0].availableTimes[0] });
@@ -529,7 +615,6 @@ router.post(
         failureMessage: "Error",
     }),
     function (req, res) {
-        console.log(res.req.user.nome, res.req.user.id);
         res.json({
             message: "Success",
             session: res.req.sessionID,
