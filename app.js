@@ -6,22 +6,42 @@ const apiRouter = require("./routes/api");
 const session = require("express-session");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-require("dotenv").config();
+if (process.env.NODE_ENV !== "production") {
+    require("dotenv").config();
+}
 
-// const hostHome= '10.0.0.19';
-// const hostBruna = '192.168.0.199';
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
+
+const cert = fs.readFileSync(
+    path.resolve(__dirname, `./certs/${process.env.GN_CERT}`)
+);
+const agent = new https.Agent({ pfx: cert, passphprase: "" });
+const credentials = Buffer.from(
+    `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
+).toString("base64");
+
+console.log(credentials, agent);
+axios({
+    method: "POST",
+    url: `${process.env.GN_ENDPOINT}/oauth/token`,
+    headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+    },
+    httpsAgent: agent,
+    data: {
+        grant_type: "client_credentials",
+    },
+}).then(console.log);
 
 app.use(cors());
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     next();
 });
-
-function authenticationMiddleware(req, res, next) {
-    console.log(req.isAuthenticated());
-    if (req.isAuthenticated()) return next();
-    res.json({ fail: true });
-}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -31,8 +51,8 @@ const MySQLStore = require("express-mysql-session")(session);
 require("./auth")(passport);
 app.use(
     session({
-        key: "session_cookie_name",
-        secret: "session_cookie_secret",
+        key: process.env.KEY,
+        secret: process.env.SESSION_SECRET,
         store: new MySQLStore({
             host: process.env.HOST,
             port: 3306,
@@ -42,7 +62,6 @@ app.use(
         }),
         resave: false,
         saveUninitialized: false,
-        // cookie: { maxAge: 30 * 60 * 1000 }
     })
 );
 app.use(passport.initialize());

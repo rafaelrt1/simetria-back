@@ -10,7 +10,6 @@ async function connect() {
         database: process.env.DB,
         port: 3306,
     });
-    console.log("Conectou no MySQL!");
     global.connection = connection;
     return connection;
 }

@@ -3,10 +3,13 @@ const router = express.Router();
 const connection = require("../config/connectDb");
 const passport = require("passport");
 const bcrypt = require("bcrypt");
-require("dotenv").config();
+if (process.env.NODE_ENV !== "production") {
+    require("dotenv").config();
+}
 const db = require("../db");
 const moment = require("moment");
 const { response } = require("express");
+const Gerencianet = require("gn-api-sdk-node");
 
 let DEFAULT_CLOSING_TIME_MORNING_WEEKEND = "12:00";
 let DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND = "17:00";
@@ -322,6 +325,13 @@ router.get("/horarios", async (req, res, next) => {
                 });
             });
         } else {
+            const [employee] = await conn.query(
+                `SELECT f.nome FROM funcionarios f join funcionarios_servicos fs on f.id=fs.idFuncionario join servicos s on s.id = fs.idServico where f.id = ? and s.id = ?`,
+                [professional, service]
+            );
+            if (!employee?.length) {
+                return res.json({ error: "Profissional inválido" });
+            }
             const [employeeTimeReserved] = await conn.query(
                 `SELECT * FROM agendamentos where data = ? and idFuncionario = ?`,
                 [date, professional]
@@ -332,7 +342,7 @@ router.get("/horarios", async (req, res, next) => {
                 employeeTimeReserved[0]?.dataFim
             ) {
                 timesReserved.push({
-                    id: employeeTimeReserved[0].id,
+                    id: employeeTimeReserved[0].idFuncionario,
                     professionalReservedTimes: [],
                 });
             }
@@ -358,6 +368,28 @@ router.get("/horarios", async (req, res, next) => {
     }
 });
 
+router.get("/reservas", async (req, res, next) => {
+    try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
+        const conn = await db.connect();
+        const [userData] = await conn.query(
+            `SELECT data FROM sessions where session_id = ?`,
+            [req.headers.authorization]
+        );
+        let user = JSON.parse(userData[0].data);
+        user = user.passport.user;
+        const [userReserves] = await conn.query(
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco' FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            [user]
+        );
+        res.json(userReserves);
+    } catch (e) {}
+});
+
 router.post("/google-user", async (req, res, next) => {
     try {
         let id = req.body.id;
@@ -367,13 +399,12 @@ router.post("/google-user", async (req, res, next) => {
         const conn = await db.connect();
 
         const [user] = await conn.query(
-            `SELECT id FROM usuarios where id = ?;`,
+            `SELECT id FROM usuarios where idGoogle = ?;`,
             [id]
         );
-
         if (!user?.length) {
             await conn.query(
-                `INSERT INTO usuarios (id, email, nome, tokenGoogle) values (?, ?, ?, ?);`,
+                `INSERT INTO usuarios (idGoogle, emailGoogle, nome, tokenGoogle, isAdmin) values (?, ?, ?, ?, 0);`,
                 [id, email, nome, tokenGoogle]
             );
         }
@@ -389,7 +420,7 @@ router.post("/google-user", async (req, res, next) => {
                         httpOnly: true,
                         path: "/",
                     },
-                    passport: { user: user[0].id },
+                    passport: { user: user[0]?.id ? user[0].id : id },
                 }),
             ]
         );
@@ -522,7 +553,7 @@ router.post("/horario", async (req, res, next) => {
             let user = JSON.parse(userData[0].data);
 
             const [infos] = await conn.query(
-                `SELECT f.nome as 'professional', coalesce(s.duracaoMaxima, s.duracaoMinima) as 'duration', s.nome as 'service' from servicos s, funcionarios f where f.id = ? and s.id= ?;`,
+                `SELECT f.nome as 'professional', coalesce(s.duracaoMaxima, s.duracaoMinima) as 'duration', s.nome as 'service', coalesce(s.precoMinimo, s.precoMaximo) as 'valor' from servicos s, funcionarios f where f.id = ? and s.id= ?;`,
                 [professional, service]
             );
 
@@ -539,7 +570,7 @@ router.post("/horario", async (req, res, next) => {
             }`;
 
             await conn.query(
-                `INSERT INTO agendamentos (dataInicio, idFuncionario, idServico, dataFim, data, cliente) values (?, ?, ?, ?, ?, ?);`,
+                `INSERT INTO agendamentos (dataInicio, idFuncionario, idServico, dataFim, data, cliente, valor) values (?, ?, ?, ?, ?, ?, ?);`,
                 [
                     formattedDateBegin,
                     professional,
@@ -547,6 +578,7 @@ router.post("/horario", async (req, res, next) => {
                     formattedTimeEnd,
                     formattedDate,
                     user.passport.user,
+                    infos[0].valor,
                 ]
             );
 
@@ -643,7 +675,7 @@ router.post("/register", function (req, res, next) {
         let name = req.body.name.toString();
         bcrypt.hash(req.body.pass.toString(), 10, function (err, hash) {
             connection.query(
-                "Insert into usuarios(email, senha, celular, nome) values (?, ?, ?, ?);",
+                "Insert into usuarios(email, senha, celular, nome, isAdmin) values (?, ?, ?, ?, 0);",
                 [email, hash, cell, name],
                 function (err, rows, fields) {
                     if (err) {
