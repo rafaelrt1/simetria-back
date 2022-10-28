@@ -10,6 +10,10 @@ const db = require("../db");
 const moment = require("moment");
 const { response } = require("express");
 const Gerencianet = require("gn-api-sdk-node");
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 
 let DEFAULT_CLOSING_TIME_MORNING_WEEKEND = "12:00";
 let DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND = "17:00";
@@ -691,6 +695,85 @@ router.post("/register", function (req, res, next) {
                 }
             ).end;
         });
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.get("/qrcode", async (req, res, next) => {
+    try {
+        const isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
+        const conn = await db.connect();
+        const userToken = req.headers.authorization;
+        const order = req.query.order;
+
+        const [userData] = await conn.query(
+            `SELECT data FROM sessions where session_id = ?`,
+            [userToken]
+        );
+
+        let user = JSON.parse(userData[0].data);
+        user = user.passport.user;
+
+        const [reservationInfos] = await conn.query(
+            `SELECT cliente, valor FROM agendamentos where id = ?`,
+            [order]
+        );
+
+        if (user !== reservationInfos[0].cliente) {
+            return res.json({ error: "Acesso negado" });
+        }
+
+        const cert = fs.readFileSync(
+            path.resolve(__dirname, `../certs/${process.env.GN_CERT}`)
+        );
+        const agent = new https.Agent({ pfx: cert, passphprase: "" });
+        const credentials = Buffer.from(
+            `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
+        ).toString("base64");
+        const authResponse = await axios({
+            method: "POST",
+            url: `${process.env.GN_ENDPOINT}/oauth/token`,
+            headers: {
+                Authorization: `Basic ${credentials}`,
+                "Content-Type": "application/json",
+            },
+            httpsAgent: agent,
+            data: {
+                grant_type: "client_credentials",
+            },
+        });
+
+        const accessToken = authResponse.data?.access_token;
+
+        const reqGN = axios.create({
+            baseURL: process.env.GN_ENDPOINT,
+            httpsAgent: agent,
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const dataCob = {
+            calendario: {
+                expiracao: 3600,
+            },
+            valor: {
+                original: reservationInfos[0].valor.toString(),
+            },
+            chave: "02903004013",
+        };
+
+        const cobResponse = await reqGN.post("/v2/cob", dataCob);
+        const qrCodeResponse = await reqGN.get(
+            `/v2/loc/${cobResponse.data.loc.id}/qrcode`
+        );
+        res.json(qrCodeResponse.data);
     } catch (e) {
         console.error(e);
     }
