@@ -8,12 +8,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 const db = require("../db");
 const moment = require("moment");
-const { response } = require("express");
-const Gerencianet = require("gn-api-sdk-node");
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const https = require("https");
+const GNRequest = require("../gerencianet");
 
 let DEFAULT_CLOSING_TIME_MORNING_WEEKEND = "12:00";
 let DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND = "17:00";
@@ -387,7 +382,7 @@ router.get("/reservas", async (req, res, next) => {
         let user = JSON.parse(userData[0].data);
         user = user.passport.user;
         const [userReserves] = await conn.query(
-            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco' FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
             [user]
         );
         res.json(userReserves);
@@ -700,6 +695,11 @@ router.post("/register", function (req, res, next) {
     }
 });
 
+const reqGNAlready = GNRequest({
+    clientId: process.env.GN_CLIENT_ID,
+    clientSecret: process.env.GN_CLIENT_SECRET,
+});
+
 router.get("/qrcode", async (req, res, next) => {
     try {
         const isAuthorized = await checkPermission(req.headers.authorization);
@@ -728,36 +728,7 @@ router.get("/qrcode", async (req, res, next) => {
             return res.json({ error: "Acesso negado" });
         }
 
-        const cert = fs.readFileSync(
-            path.resolve(__dirname, `../certs/${process.env.GN_CERT}`)
-        );
-        const agent = new https.Agent({ pfx: cert, passphprase: "" });
-        const credentials = Buffer.from(
-            `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
-        ).toString("base64");
-        const authResponse = await axios({
-            method: "POST",
-            url: `${process.env.GN_ENDPOINT}/oauth/token`,
-            headers: {
-                Authorization: `Basic ${credentials}`,
-                "Content-Type": "application/json",
-            },
-            httpsAgent: agent,
-            data: {
-                grant_type: "client_credentials",
-            },
-        });
-
-        const accessToken = authResponse.data?.access_token;
-
-        const reqGN = axios.create({
-            baseURL: process.env.GN_ENDPOINT,
-            httpsAgent: agent,
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-            },
-        });
+        const reqGN = await reqGNAlready;
 
         const dataCob = {
             calendario: {
@@ -777,6 +748,22 @@ router.get("/qrcode", async (req, res, next) => {
     } catch (e) {
         console.error(e);
     }
+});
+
+router.get("/cobrancas", async (req, res, next) => {
+    const reqGN = await reqGNAlready;
+
+    const cobResponse = await reqGN.get(
+        "/v2/cob?inicio=2022-10-31T00:00:00Z&fim=2022-11-01T23:59:00Z"
+    );
+
+    console.log(cobResponse.data);
+    res.json(cobResponse.data);
+});
+
+router.post("/webhook(/pix)?", async (req, res, next) => {
+    console.log(req.body);
+    res.send("200");
 });
 
 module.exports = router;
