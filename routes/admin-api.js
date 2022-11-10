@@ -78,8 +78,6 @@ router.get("/funcionarios", async (req, res, next) => {
             `SELECT id, nome FROM funcionarios`
         );
         return res.json(employees);
-        // const user = JSON.parse(userData[0].data);
-        // return checkPermission(user.passport.user);
     } catch (e) {
         console.error(e);
     }
