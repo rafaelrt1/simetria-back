@@ -11,55 +11,7 @@ if (process.env.NODE_ENV !== "production") {
     require("dotenv").config();
 }
 
-// const axios = require("axios");
-// const fs = require("fs");
-// const path = require("path");
-// const https = require("https");
-
-// const cert = fs.readFileSync(
-//     path.resolve(__dirname, `./certs/${process.env.GN_CERT}`)
-// );
-// const agent = new https.Agent({ pfx: cert, passphprase: "" });
-// const credentials = Buffer.from(
-//     `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
-// ).toString("base64");
-
-// axios({
-//     method: "POST",
-//     url: `${process.env.GN_ENDPOINT}/oauth/token`,
-//     headers: {
-//         Authorization: `Basic ${credentials}`,
-//         "Content-Type": "application/json",
-//     },
-//     httpsAgent: agent,
-//     data: {
-//         grant_type: "client_credentials",
-//     },
-// }).then((response) => {
-//     const accessToken = response.data?.access_token;
-//     const reqGN = axios.create({
-//         baseURL: process.env.GN_ENDPOINT,
-//         httpsAgent: agent,
-//         headers: {
-//             Authorization: `Bearer ${accessToken}`,
-//             "Content-Type": "application/json",
-//         },
-//     });
-
-//     const dataCob = {
-//         calendario: {
-//             expiracao: 3600,
-//         },
-//         valor: {
-//             original: "124.45",
-//         },
-//         chave: "02903004013",
-//     };
-
-//     reqGN
-//         .post("/v2/cob", dataCob)
-//         .then((response) => console.log(response.data));
-// });
+const port = process.env.PORT || 8000;
 
 app.use(cors());
 app.use((req, res, next) => {
@@ -97,8 +49,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/admin", adminRouter);
 app.use("/", apiRouter);
 
-app.listen(8000, () => {
-    console.log(`Example app listening on port 8000`);
+app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
 });
 
 module.exports = app;
