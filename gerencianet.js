@@ -6,6 +6,7 @@ const https = require("https");
 const cert = fs.readFileSync(
     path.resolve(__dirname, `./certs/${process.env.GN_CERT}`)
 );
+
 const agent = new https.Agent({ pfx: cert, passphprase: "" });
 
 const authenticate = ({ clientId, clientSecret }) => {

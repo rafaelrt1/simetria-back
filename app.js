@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
+const adminRouter = require("./routes/admin-api");
 const apiRouter = require("./routes/api");
 const session = require("express-session");
 const bodyParser = require("body-parser");
@@ -93,6 +94,7 @@ app.use(passport.session());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.use("/admin", adminRouter);
 app.use("/", apiRouter);
 
 app.listen(8000, () => {

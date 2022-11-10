@@ -93,7 +93,10 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
 
             let times = [];
 
-            if (dateClosingToday.isSameOrAfter(dateEnd)) {
+            if (
+                dateClosingToday.isSameOrAfter(dateEnd) &&
+                dateBegining.isAfter(moment(new Date()))
+            ) {
                 times.push(dateBegining);
                 for (let i = 0; dateEnd >= dateBegining; i++) {
                     dateBegining = moment(dateBegining).add(30, "minutes");
@@ -389,6 +392,35 @@ router.get("/reservas", async (req, res, next) => {
     } catch (e) {}
 });
 
+router.delete("/reserva", async (req, res, next) => {
+    try {
+        let isAuthorized = await checkPermission(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ erro: "Usuário deslogado" });
+        }
+        const conn = await db.connect();
+        const [userData] = await conn.query(
+            `SELECT data FROM sessions where session_id = ?`,
+            [req.headers.authorization]
+        );
+        let user = JSON.parse(userData[0].data);
+        user = user.passport.user;
+
+        const reserve = req.body.id;
+        const [removedUserReserve] = await conn.query(
+            `DELETE from agendamentos where id = ?;`,
+            reserve
+        );
+
+        const [userReserves] = await conn.query(
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            [user]
+        );
+        res.json(userReserves);
+    } catch (e) {}
+});
+
 router.post("/google-user", async (req, res, next) => {
     try {
         let id = req.body.id;
@@ -540,7 +572,9 @@ router.post("/horario", async (req, res, next) => {
                 new Date(date).getMonth() + 1
             ).toLocaleString("en-US", {
                 minimumIntegerDigits: 2,
-            })}-${new Date(date).getDate()}`;
+            })}-${new Date(date).getDate().toLocaleString("en-US", {
+                minimumIntegerDigits: 2,
+            })}`;
 
             let formattedDateBegin = `${formattedDate} ${chosenTime}:00`;
 
@@ -639,20 +673,13 @@ router.get("/permission", async (req, res, next) => {
     }
 });
 
-router.post(
-    "/login",
-    passport.authenticate("local", {
-        failureRedirect: "/login",
-        failureMessage: "Error",
-    }),
-    function (req, res) {
-        res.json({
-            message: "Success",
-            session: res.req.sessionID,
-            userData: { name: res.req.user.nome, id: res.req.user.id },
-        });
-    }
-);
+router.post("/login", passport.authenticate("local"), function (req, res) {
+    res.json({
+        message: "Success",
+        session: res.req.sessionID,
+        userData: { name: res.req.user.nome, id: res.req.user.id },
+    });
+});
 
 router.post("/logout", async function (req, res, next) {
     let session = req.body.token;
@@ -728,7 +755,10 @@ router.get("/qrcode", async (req, res, next) => {
             return res.json({ error: "Acesso negado" });
         }
 
-        const reqGN = await reqGNAlready;
+        const reqGN = await GNRequest({
+            clientId: process.env.GN_CLIENT_ID,
+            clientSecret: process.env.GN_CLIENT_SECRET,
+        });
 
         const dataCob = {
             calendario: {
@@ -751,13 +781,15 @@ router.get("/qrcode", async (req, res, next) => {
 });
 
 router.get("/cobrancas", async (req, res, next) => {
-    const reqGN = await reqGNAlready;
+    const reqGN = await GNRequest({
+        clientId: process.env.GN_CLIENT_ID,
+        clientSecret: process.env.GN_CLIENT_SECRET,
+    });
 
     const cobResponse = await reqGN.get(
         "/v2/cob?inicio=2022-10-31T00:00:00Z&fim=2022-11-01T23:59:00Z"
     );
 
-    console.log(cobResponse.data);
     res.json(cobResponse.data);
 });
 
