@@ -7,8 +7,6 @@ if (process.env.NODE_ENV !== "production") {
     require("dotenv").config();
 }
 
-console.log(process.env.GN_CERT);
-
 const cert = fs.readFileSync(
     path.resolve(__dirname, `./certs/${process.env.GN_CERT}`)
 );
