@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const https = require("https");
 
+if (process.env.NODE_ENV !== "production") {
+    require("dotenv").config();
+}
+
 const cert = fs.readFileSync(
     path.resolve(__dirname, `./certs/${process.env.GN_CERT}`)
 );

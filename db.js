@@ -1,4 +1,8 @@
 async function connect() {
+    if (process.env.NODE_ENV !== "production") {
+        require("dotenv").config();
+    }
+
     if (global.connection && global.connection.state !== "disconnected")
         return global.connection;
 
