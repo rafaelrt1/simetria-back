@@ -16,7 +16,10 @@ const checkPermission = async (user) => {
             `SELECT * FROM usuarios where id = ? and isAdmin = 1`,
             user
         );
-
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return userData?.length && userData[0]?.isAdmin;
     }
 };
@@ -27,6 +30,10 @@ const getProfessionals = async (id) => {
         `SELECT f.id, f.nome FROM funcionarios f join funcionarios_servicos fs on f.id = fs.idFuncionario where fs.idServico = ?;`,
         id
     );
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
     return professioanalsAvailableToService;
 };
 
@@ -36,6 +43,10 @@ const getEmployees = async () => {
         const [employees] = await conn.query(
             `SELECT id, nome, ativo FROM funcionarios`
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return employees;
     } catch (e) {
         return e;
@@ -52,6 +63,10 @@ const getUser = async (token) => {
         );
         if (!userData.length) return false;
         const user = JSON.parse(userData[0].data);
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return checkPermission(user.passport.user);
     }
 };
@@ -95,7 +110,10 @@ router.get("/servicos", async (req, res, next) => {
             });
             response.push(responseObj);
         });
-
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         res.json(response);
     } catch (e) {
         console.error(e);
@@ -122,6 +140,10 @@ router.post("/funcionario", async (req, res, next) => {
             `INSERT INTO funcionarios (nome, ativo) values (?,?)`,
             [req.body.name, req.body.active]
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return res.json(await getEmployees());
     } catch (e) {
         console.error(e);
@@ -148,6 +170,10 @@ router.put("/funcionario", async (req, res, next) => {
             `UPDATE funcionarios set nome = ?, ativo = ? where id = ?`,
             [req.body.name, req.body.active, req.body.id]
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return res.json(await getEmployees());
     } catch (e) {
         console.error(e);
@@ -177,6 +203,10 @@ router.delete("/funcionarios", async (req, res, next) => {
             query,
             req.body.itemsToDelete
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         return res.json(await getEmployees());
     } catch (e) {
         console.error(e);

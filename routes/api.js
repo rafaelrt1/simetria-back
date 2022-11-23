@@ -55,13 +55,18 @@ const alreadyHasProfessional = (timeReserved, timesReserved) => {
 };
 
 const checkPermission = async (token) => {
-    const conn = await db.connect();
     if (!token) return false;
     else {
+        const conn = await db.connect();
         const [userData] = await conn.query(
             `SELECT data FROM sessions where session_id = ?`,
             [token]
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
         return userData?.length;
     }
 };
@@ -260,6 +265,10 @@ const mountAvailableTimes = async (servico, timeReserved, date) => {
     if (!result[0]) {
         return { error: "Nenhum horário disponível" };
     }
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
     return result;
 };
 
@@ -363,6 +372,10 @@ router.get("/horarios", async (req, res, next) => {
             timesReserved,
             new Date(date)
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
 
         res.json(response);
     } catch (e) {
@@ -388,6 +401,10 @@ router.get("/reservas", async (req, res, next) => {
             `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
             [user]
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         res.json(userReserves);
     } catch (e) {}
 });
@@ -417,6 +434,10 @@ router.delete("/reserva", async (req, res, next) => {
             `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
             [user]
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         res.json(userReserves);
     } catch (e) {}
 });
@@ -456,6 +477,11 @@ router.post("/google-user", async (req, res, next) => {
             ]
         );
 
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
         res.json({
             message: "Success",
             session: tokenGoogle,
@@ -488,6 +514,12 @@ router.get("/infos", async (req, res, next) => {
             .add(infos[0].duration.split(":")[1], "minutes");
 
         timeEnd = new Date(timeEnd);
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
         res.json({
             professional: infos[0].professional,
             timeEnd: `${timeEnd.getHours()}:${
@@ -614,9 +646,16 @@ router.post("/horario", async (req, res, next) => {
                     infos[0].valor,
                 ]
             );
-
+            conn.end(function (err) {
+                if (err) throw err;
+                else console.log("Closing connection.");
+            });
             res.json({ status: "success" });
         } else {
+            conn.end(function (err) {
+                if (err) throw err;
+                else console.log("Closing connection.");
+            });
             res.json({ nextAvailable: response[0].availableTimes[0] });
         }
     } catch (e) {
@@ -650,6 +689,10 @@ router.get("/servicos", async (req, res, next) => {
                                 return service.options.push(option.nome);
                             }
                         });
+                    });
+                    conn.end(function (err) {
+                        if (err) throw err;
+                        else console.log("Closing connection.");
                     });
                     res.json(rows);
                 }
@@ -691,6 +734,10 @@ router.post("/logout", async function (req, res, next) {
         `DELETE from sessions where session_id = ?;`,
         [session]
     );
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
     res.json({});
 });
 
@@ -774,6 +821,10 @@ router.get("/qrcode", async (req, res, next) => {
         const qrCodeResponse = await reqGN.get(
             `/v2/loc/${cobResponse.data.loc.id}/qrcode`
         );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
         res.json(qrCodeResponse.data);
     } catch (e) {
         console.error(e);
