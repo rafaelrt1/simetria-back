@@ -28,6 +28,10 @@ async function findUser(username) {
         `SELECT * FROM usuarios WHERE email=? and tokenGoogle is null LIMIT 1`,
         [username]
     );
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
     if (rows.length > 0) return rows[0];
     else return null;
 }
@@ -38,6 +42,10 @@ async function findUserById(id) {
         `SELECT * FROM usuarios WHERE id=? LIMIT 1`,
         [id]
     );
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
     if (rows.length > 0) return rows[0];
     else return null;
 }
