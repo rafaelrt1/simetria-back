@@ -3,9 +3,13 @@ async function connect() {
         require("dotenv").config();
     }
 
-    if (global.connection && global.connection.state !== "disconnected")
+    if (
+        global.connection &&
+        global.connection.state &&
+        global.connection.state !== "disconnected"
+    ) {
         return global.connection;
-
+    }
     const mysql = require("mysql2/promise");
     const connection = await mysql.createConnection({
         host: process.env.HOST,
