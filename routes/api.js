@@ -818,6 +818,12 @@ router.get("/qrcode", async (req, res, next) => {
         };
 
         const cobResponse = await reqGN.post("/v2/cob", dataCob);
+
+        const [cob] = await conn.query(
+            `INSERT INTO cobrancas (idAgendamento, txid) values (?, ?)`,
+            [order, cobResponse.data.txid]
+        );
+
         const qrCodeResponse = await reqGN.get(
             `/v2/loc/${cobResponse.data.loc.id}/qrcode`
         );
@@ -846,6 +852,26 @@ router.get("/cobrancas", async (req, res, next) => {
 
 router.post("/webhook(/pix)?", async (req, res, next) => {
     console.log(req.body);
+
+    const conn = await db.connect();
+
+    const txid = req.body.pix[0].txid;
+
+    const [order] = await conn.query(
+        `SELECT idAgendamento from cobrancas where txid = ?`,
+        [txid]
+    );
+
+    const [cob] = await conn.query(
+        `UPDATE agendamentos set pago = 1 where id = ?`,
+        [order[0]]
+    );
+
+    conn.end(function (err) {
+        if (err) throw err;
+        else console.log("Closing connection.");
+    });
+
     res.send("200");
 });
 
