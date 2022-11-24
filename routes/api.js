@@ -447,7 +447,7 @@ router.post("/google-user", async (req, res, next) => {
         let id = req.body.id;
         let email = req.body.email;
         let nome = req.body.nome;
-        let tokenGoogle = req.body.tokenGoogle;
+        let tokenGoogle = req.body.tokenGoogle.substr(0, 125);
         const conn = await db.connect();
 
         const [user] = await conn.query(
