@@ -864,7 +864,7 @@ router.post("/webhook(/pix)?", async (req, res, next) => {
 
     const [cob] = await conn.query(
         `UPDATE agendamentos set pago = 1 where id = ?`,
-        [order[0]]
+        [order[0].idAgendamento]
     );
 
     conn.end(function (err) {
