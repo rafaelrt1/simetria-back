@@ -543,11 +543,11 @@ router.get("/infos", async (req, res, next) => {
 
         res.json({
             professional: infos[0].professional,
-            timeEnd: `${timeEnd.getHours()}:${
-                timeEnd.getMinutes() > 0
-                    ? timeEnd.getMinutes()
-                    : timeEnd.getMinutes() + "0"
-            }`,
+            timeEnd: `${timeEnd.getHours()}:${timeEnd
+                .getMinutes()
+                .toLocaleString("en-US", {
+                    minimumIntegerDigits: 2,
+                })}`,
             service: infos[0].service,
         });
     } catch (e) {}
