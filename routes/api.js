@@ -398,7 +398,7 @@ router.get("/reservas", async (req, res, next) => {
         let user = JSON.parse(userData[0].data);
         user = user.passport.user;
         const [userReserves] = await conn.query(
-            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
             [user]
         );
         conn.end(function (err) {
@@ -425,20 +425,41 @@ router.delete("/reserva", async (req, res, next) => {
         user = user.passport.user;
 
         const reserve = req.body.id;
-        const [removedUserReserve] = await conn.query(
-            `DELETE from agendamentos where id = ?;`,
-            reserve
-        );
 
-        const [userReserves] = await conn.query(
-            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
-            [user]
+        const [reserveItem] = await conn.query(
+            `SELECT pago, dataFim FROM agendamentos where id = ?;`,
+            [reserve]
         );
-        conn.end(function (err) {
-            if (err) throw err;
-            else console.log("Closing connection.");
-        });
-        res.json(userReserves);
+        if (
+            Boolean(reserveItem[0].pago) ||
+            new Date(reserveItem[0].dataFim) < new Date()
+        ) {
+            res.json({
+                error: "A reserva já foi paga ou já foi realizada",
+            });
+        } else {
+            const [removedCobReserve] = await conn.query(
+                `DELETE from cobrancas where idAgendamento = ?;`,
+                reserve
+            );
+
+            const [removedUserReserve] = await conn.query(
+                `DELETE from agendamentos where id = ?;`,
+                reserve
+            );
+
+            const [userReserves] = await conn.query(
+                `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+                [user]
+            );
+
+            conn.end(function (err) {
+                if (err) throw err;
+                else console.log("Closing connection.");
+            });
+
+            res.json(userReserves);
+        }
     } catch (e) {}
 });
 
@@ -635,7 +656,7 @@ router.post("/horario", async (req, res, next) => {
             }`;
 
             await conn.query(
-                `INSERT INTO agendamentos (dataInicio, idFuncionario, idServico, dataFim, data, cliente, valor) values (?, ?, ?, ?, ?, ?, ?);`,
+                `INSERT INTO agendamentos (dataInicio, idFuncionario, idServico, dataFim, data, cliente, valor, pago) values (?, ?, ?, ?, ?, ?, ?, 0);`,
                 [
                     formattedDateBegin,
                     professional,
@@ -851,8 +872,6 @@ router.get("/cobrancas", async (req, res, next) => {
 });
 
 router.post("/webhook(/pix)?", async (req, res, next) => {
-    console.log(req.body);
-
     const conn = await db.connect();
 
     const txid = req.body.pix[0].txid;
