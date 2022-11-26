@@ -91,7 +91,9 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             let dateBegining = moment(
                 date.setHours(startTimeHours, startTimeMinutes)
             );
-
+            if (dateBegining.isSameOrBefore(moment(new Date()))) {
+                return;
+            }
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
@@ -104,8 +106,8 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             ) {
                 times.push(dateBegining);
                 for (let i = 0; dateEnd >= dateBegining; i++) {
-                    dateBegining = moment(dateBegining).add(30, "minutes");
                     times.push(dateBegining);
+                    dateBegining = moment(dateBegining).add(30, "minutes");
                 }
                 return timesAvailable.push({ time: day.time, hours: times });
             }
@@ -123,11 +125,18 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 date.setHours(closingHours, closingMinutes)
             );
 
-            let dateBegining = date.setHours(startTimeHours, startTimeMinutes);
+            let dateBegining = moment(
+                date.setHours(startTimeHours, startTimeMinutes)
+            );
+
+            if (dateBegining.isSameOrBefore(moment(new Date()))) {
+                return;
+            }
 
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
+
             let times = [];
 
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
@@ -154,11 +163,17 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             let dateBegining = moment(
                 date.setHours(startTimeHours, startTimeMinutes)
             );
+
+            if (dateBegining.isSameOrBefore(moment(new Date()))) {
+                return;
+            }
+
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
 
             let times = [];
+
             if (dateClosingToday.isSameOrAfter(dateEnd)) {
                 times.push(dateBegining);
                 for (let i = 0; dateEnd >= dateBegining; i++) {
@@ -543,11 +558,11 @@ router.get("/infos", async (req, res, next) => {
 
         res.json({
             professional: infos[0].professional,
-            timeEnd: `${timeEnd.getHours()}:${timeEnd
-                .getMinutes()
-                .toLocaleString("en-US", {
-                    minimumIntegerDigits: 2,
-                })}`,
+            timeEnd: `${timeEnd.getHours().toLocaleString("en-US", {
+                minimumIntegerDigits: 2,
+            })}:${timeEnd.getMinutes().toLocaleString("en-US", {
+                minimumIntegerDigits: 2,
+            })}`,
             service: infos[0].service,
         });
     } catch (e) {}
