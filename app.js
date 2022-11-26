@@ -49,8 +49,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/admin", adminRouter);
 app.use("/", apiRouter);
 
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
-});
+app.listen(port, () => {});
 
 module.exports = app;

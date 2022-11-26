@@ -164,7 +164,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             let dateBegining = moment(
                 date.setHours(startTimeHours, startTimeMinutes)
             );
-
+            console.log(dateBegining, new Date());
             if (dateBegining.isSameOrBefore(moment(new Date()))) {
                 return;
             }
