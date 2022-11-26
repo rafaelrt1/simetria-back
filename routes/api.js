@@ -94,6 +94,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             if (dateBegining.isSameOrBefore(moment(new Date()))) {
                 return;
             }
+            console.log(dateBegining);
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
@@ -132,7 +133,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             if (dateBegining.isSameOrBefore(moment(new Date()))) {
                 return;
             }
-
+            console.log(dateBegining);
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
@@ -167,7 +168,7 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
             if (dateBegining.isSameOrBefore(moment(new Date()))) {
                 return;
             }
-
+            console.log(dateBegining);
             const dateEnd = moment(dateBegining)
                 .add(hoursDuration, "hours")
                 .add(minutesDuration, "minutes");
@@ -221,9 +222,10 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 let timeEnd = moment(timeBegin)
                     .add(hoursDuration, "hours")
                     .add(minutesDuration, "minutes");
-
+                console.log(timeReserved);
                 let alreadyReservedInterval = availableTime.hours.some(
                     (hour) => {
+                        console.log(hour, beginTimeReserved, endTimeReserved);
                         return hour.isBetween(
                             beginTimeReserved,
                             endTimeReserved
