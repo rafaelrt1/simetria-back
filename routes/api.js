@@ -10,11 +10,10 @@ const db = require("../db");
 const moment = require("moment");
 const GNRequest = require("../gerencianet");
 
-let DEFAULT_CLOSING_TIME_MORNING_WEEKEND = "12:00";
-let DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND = "17:00";
-let DEFAULT_CLOSING_TIME_WEEK = "18:30";
+let DEFAULT_CLOSING_TIME_MORNING = "12:00";
+let DEFAULT_CLOSING_TIME_AFTERNOON = "18:30";
 
-let WEEK_DAYS_OPENING_HOURS = [
+let OPENING_HOURS_AFTERNOON = [
     { time: "13:30" },
     { time: "14:00" },
     { time: "14:30" },
@@ -26,19 +25,7 @@ let WEEK_DAYS_OPENING_HOURS = [
     { time: "17:30" },
     { time: "18:00" },
 ];
-
-let WEEKEND_DAYS_OPENING_HOURS_AFTERNOON = [
-    { time: "13:00" },
-    { time: "13:30" },
-    { time: "14:00" },
-    { time: "14:30" },
-    { time: "15:00" },
-    { time: "15:30" },
-    { time: "16:00" },
-    { time: "16:30" },
-];
-let WEEKEND_DAYS_OPENING_HOURS_MORNING = [
-    { time: "08:00" },
+let OPENING_HOURS_MORNING = [
     { time: "08:30" },
     { time: "09:00" },
     { time: "09:30" },
@@ -77,121 +64,73 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
     const minutesDuration = serviceDuration.split(":")[1];
     let timesAvailable = [];
 
-    if (weekDay !== 6) {
-        WEEK_DAYS_OPENING_HOURS.forEach((day) => {
-            const startTimeHours = day.time.split(":")[0];
-            const startTimeMinutes = day.time.split(":")[1];
-            const closingHours = DEFAULT_CLOSING_TIME_WEEK.split(":")[0];
-            const closingMinutes = DEFAULT_CLOSING_TIME_WEEK.split(":")[1];
+    OPENING_HOURS_MORNING.forEach((day) => {
+        const startTimeHours = day.time.split(":")[0];
+        const startTimeMinutes = day.time.split(":")[1];
+        const closingHours = DEFAULT_CLOSING_TIME_MORNING.split(":")[0];
+        const closingMinutes = DEFAULT_CLOSING_TIME_MORNING.split(":")[1];
 
-            const dateClosingToday = moment(
-                date.setHours(closingHours, closingMinutes)
-            );
+        const dateClosingToday = moment(
+            date.setHours(closingHours, closingMinutes)
+        );
 
-            let dateBegining = moment(
-                date.setHours(startTimeHours, startTimeMinutes)
-            );
-            if (dateBegining.isSameOrBefore(moment(new Date()))) {
-                return;
-            }
-            // console.log(dateBegining);
-            const dateEnd = moment(dateBegining)
-                .add(hoursDuration, "hours")
-                .add(minutesDuration, "minutes");
+        let dateBegining = moment(
+            date.setHours(startTimeHours, startTimeMinutes)
+        );
 
-            let times = [];
+        if (dateBegining.isSameOrBefore(moment(new Date()))) {
+            return;
+        }
 
-            if (
-                dateClosingToday.isSameOrAfter(dateEnd) &&
-                dateBegining.isAfter(moment(new Date()))
-            ) {
+        const dateEnd = moment(dateBegining)
+            .add(hoursDuration, "hours")
+            .add(minutesDuration, "minutes");
+
+        let times = [];
+
+        if (dateClosingToday.isSameOrAfter(dateEnd)) {
+            times.push(dateBegining);
+            for (let i = 0; dateEnd >= dateBegining; i++) {
                 times.push(dateBegining);
-                for (let i = 0; dateEnd >= dateBegining; i++) {
-                    times.push(dateBegining);
-                    dateBegining = moment(dateBegining).add(30, "minutes");
-                }
-                return timesAvailable.push({ time: day.time, hours: times });
+                dateBegining = moment(dateBegining).add(30, "minutes");
             }
-        });
-    } else {
-        WEEKEND_DAYS_OPENING_HOURS_MORNING.forEach((day) => {
-            const startTimeHours = day.time.split(":")[0];
-            const startTimeMinutes = day.time.split(":")[1];
-            const closingHours =
-                DEFAULT_CLOSING_TIME_MORNING_WEEKEND.split(":")[0];
-            const closingMinutes =
-                DEFAULT_CLOSING_TIME_MORNING_WEEKEND.split(":")[1];
+            return timesAvailable.push({ time: day.time, hours: times });
+        }
+    });
+    OPENING_HOURS_AFTERNOON.forEach((day) => {
+        const startTimeHours = day.time.split(":")[0];
+        const startTimeMinutes = day.time.split(":")[1];
+        const closingHours = DEFAULT_CLOSING_TIME_AFTERNOON.split(":")[0];
+        const closingMinutes = DEFAULT_CLOSING_TIME_AFTERNOON.split(":")[1];
 
-            const dateClosingToday = moment(
-                date.setHours(closingHours, closingMinutes)
-            );
+        const dateClosingToday = moment(
+            date.setHours(closingHours, closingMinutes)
+        );
 
-            let dateBegining = moment(
-                date.setHours(startTimeHours, startTimeMinutes)
-            );
+        let dateBegining = moment(
+            date.setHours(startTimeHours, startTimeMinutes)
+        );
 
-            if (dateBegining.isSameOrBefore(moment(new Date()))) {
-                return;
-            }
-            // console.log(dateBegining);
-            const dateEnd = moment(dateBegining)
-                .add(hoursDuration, "hours")
-                .add(minutesDuration, "minutes");
+        if (dateBegining.isSameOrBefore(moment(new Date()))) {
+            return;
+        }
 
-            let times = [];
+        const dateEnd = moment(dateBegining)
+            .add(hoursDuration, "hours")
+            .add(minutesDuration, "minutes");
 
-            if (dateClosingToday.isSameOrAfter(dateEnd)) {
+        let times = [];
+
+        if (dateClosingToday.isSameOrAfter(dateEnd)) {
+            times.push(dateBegining);
+            for (let i = 0; dateEnd >= dateBegining; i++) {
                 times.push(dateBegining);
-                for (let i = 0; dateEnd >= dateBegining; i++) {
-                    times.push(dateBegining);
-                    dateBegining = moment(dateBegining).add(30, "minutes");
-                }
-                return timesAvailable.push({ time: day.time, hours: times });
+                dateBegining = moment(dateBegining).add(30, "minutes");
             }
-        });
-        WEEKEND_DAYS_OPENING_HOURS_AFTERNOON.forEach((day) => {
-            const startTimeHours = day.time.split(":")[0];
-            const startTimeMinutes = day.time.split(":")[1];
-            const closingHours =
-                DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND.split(":")[0];
-            const closingMinutes =
-                DEFAULT_CLOSING_TIME_AFTERNOON_WEEKEND.split(":")[1];
+            return timesAvailable.push({ time: day.time, hours: times });
+        }
+    });
 
-            const dateClosingToday = moment(
-                date.setHours(closingHours, closingMinutes)
-            );
-
-            let dateBegining = moment(
-                date.setHours(startTimeHours, startTimeMinutes)
-            );
-            console.log(
-                "timeOption: ",
-                dateBegining,
-                "   now: ",
-                new Date(),
-                "   isPast: ",
-                dateBegining.isSameOrBefore(moment(new Date()))
-            );
-            if (dateBegining.isSameOrBefore(moment(new Date()))) {
-                return;
-            }
-            // console.log(dateBegining);
-            const dateEnd = moment(dateBegining)
-                .add(hoursDuration, "hours")
-                .add(minutesDuration, "minutes");
-
-            let times = [];
-
-            if (dateClosingToday.isSameOrAfter(dateEnd)) {
-                times.push(dateBegining);
-                for (let i = 0; dateEnd >= dateBegining; i++) {
-                    times.push(dateBegining);
-                    dateBegining = moment(dateBegining).add(30, "minutes");
-                }
-                return timesAvailable.push({ time: day.time, hours: times });
-            }
-        });
-    }
     let response = [];
 
     const pushedValue = (timesAvailable, availableTime) => {
@@ -229,10 +168,9 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
                 let timeEnd = moment(timeBegin)
                     .add(hoursDuration, "hours")
                     .add(minutesDuration, "minutes");
-                // console.log(timeReserved);
+
                 let alreadyReservedInterval = availableTime.hours.some(
                     (hour) => {
-                        // console.log(hour, beginTimeReserved, endTimeReserved);
                         return hour.isBetween(
                             beginTimeReserved,
                             endTimeReserved
@@ -311,8 +249,7 @@ router.get("/horarios", async (req, res, next) => {
         const isValidDate = () => {
             return (
                 new Date(date + "UTC-3") >= new Date().setHours(0, 0, 0, 0) &&
-                new Date(date + "UTC-3").getDay() !== 0 &&
-                new Date(date + "UTC-3").getDay() !== 1
+                new Date(date + "UTC-3").getDay() !== 0
             );
         };
 
@@ -422,7 +359,7 @@ router.get("/reservas", async (req, res, next) => {
         let user = JSON.parse(userData[0].data);
         user = user.passport.user;
         const [userReserves] = await conn.query(
-            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
             [user]
         );
         conn.end(function (err) {
@@ -473,7 +410,7 @@ router.delete("/reserva", async (req, res, next) => {
             );
 
             const [userReserves] = await conn.query(
-                `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+                `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
                 [user]
             );
 
@@ -594,8 +531,7 @@ router.post("/horario", async (req, res, next) => {
         const isValidDate = () => {
             return (
                 new Date(date + "UTC-3") >= new Date().setHours(0, 0, 0, 0) &&
-                new Date(date + "UTC-3").getDay() !== 0 &&
-                new Date(date + "UTC-3").getDay() !== 1
+                new Date(date + "UTC-3").getDay() !== 0
             );
         };
 
