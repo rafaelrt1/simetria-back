@@ -59,7 +59,6 @@ const checkPermission = async (token) => {
 };
 
 const getTimeOptions = (date, serviceDuration, timeReserved) => {
-    const weekDay = new Date(date).getDay();
     const hoursDuration = serviceDuration.split(":")[0];
     const minutesDuration = serviceDuration.split(":")[1];
     let timesAvailable = [];
@@ -192,7 +191,6 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
 };
 
 const mountAvailableTimes = async (servico, timeReserved, date) => {
-    const weekDay = new Date(date).getDay();
     const conn = await db.connect();
     const [serviceDuration] = await conn.query(
         `SELECT coalesce(duracaoMaxima, duracaoMinima) as 'tempo' FROM servicos where id = ?`,
@@ -359,7 +357,7 @@ router.get("/reservas", async (req, res, next) => {
         let user = JSON.parse(userData[0].data);
         user = user.passport.user;
         const [userReserves] = await conn.query(
-            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+            `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ? order by a.id desc;`,
             [user]
         );
         conn.end(function (err) {

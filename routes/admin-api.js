@@ -71,6 +71,27 @@ const getUser = async (token) => {
     }
 };
 
+router.get("/lista-servicos", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+        const conn = await db.connect();
+        const [services] = await conn.query(
+            `SELECT id, nome FROM servicos where ativo = 1;`
+        );
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+        res.json(services);
+    } catch (e) {
+        console.error(e);
+    }
+});
+
 router.get("/servicos", async (req, res, next) => {
     try {
         let isAuthorized = await getUser(req.headers.authorization);
@@ -249,6 +270,190 @@ router.post("/login", passport.authenticate("local"), function (req, res) {
     } else {
         res.status(403);
         return res.json({ error: "Não permitido" });
+    }
+});
+
+router.get("/agenda-profissional", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+        if (!new Date(req.query.data) || req.query.data === "NaN-NaN-NaN") {
+            res.status(400);
+            return res.json([]);
+        }
+        const conn = await db.connect();
+
+        const [reserves] = await conn.query(
+            `SELECT a.id, a.dataInicio, a.dataFim, u.nome as 'cliente', s.nome as 'servico', s.id as 'idServico', a.pago, a.valor from agendamentos a join servicos s on s.id = a.idServico join usuarios u on a.cliente = u.id where a.idFuncionario = ? and a.data = ? order by a.dataInicio`,
+            [req.query.funcionario, req.query.data]
+        );
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
+        res.json(reserves);
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.get("/clientes", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+
+        const conn = await db.connect();
+
+        const [clients] = await conn.query(
+            `SELECT id, nome, coalesce(email, emailGoogle) as 'email' from usuarios`
+        );
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
+        res.json(clients);
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.post("/agendamento", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+
+        const clientAlreadyRegistered = parseInt(req.body.client)
+            ? true
+            : false;
+        const beginTime = req.body.beginTime;
+        const date = req.body.date;
+        const endTime = req.body.endTime;
+        const professional = parseInt(req.body.professional);
+        const service = parseInt(req.body.service);
+        const paid = req.body.paid === true ? "1" : "0";
+        let client = req.body.client;
+
+        const conn = await db.connect();
+
+        if (!clientAlreadyRegistered) {
+            const [newClient] = await conn.query(
+                `INSERT INTO usuarios(email, senha, celular, nome, isAdmin) VALUES (${null}, ${null}, ${null}, ?, 0);`,
+                [client]
+            );
+            client = newClient["insertId"];
+        }
+
+        const [servicePrice] = await conn.query(
+            `SELECT precoMinimo FROM servicos where id = ?`,
+            service
+        );
+
+        const [reserve] = await conn.query(
+            `INSERT INTO agendamentos(dataInicio, idFuncionario, idServico, dataFim, data, cliente, valor, pago) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+            [
+                beginTime,
+                professional,
+                service,
+                endTime,
+                date,
+                client,
+                servicePrice[0].precoMinimo,
+                paid,
+            ]
+        );
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
+        res.json("Adicionado");
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.put("/agendamento", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+
+        const agendamento = parseInt(req.body.agendamento);
+        const beginTime = req.body.beginTime;
+        const date = req.body.date;
+        const endTime = req.body.endTime;
+        const professional = parseInt(req.body.professional);
+        const service = parseInt(req.body.service);
+        const paid = req.body.paid === true ? "1" : "0";
+
+        const conn = await db.connect();
+
+        const [reserve] = await conn.query(
+            `UPDATE agendamentos SET dataInicio = ?, idFuncionario = ?, idServico = ?, dataFim = ?, data = ?, pago = ? where id = ?;`,
+            [beginTime, professional, service, endTime, date, paid, agendamento]
+        );
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
+        res.json("Sucesso");
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+router.delete("/agendamento", async (req, res, next) => {
+    try {
+        let isAuthorized = await getUser(req.headers.authorization);
+        if (!isAuthorized) {
+            res.status(403);
+            return res.json({ error: "Usuário deslogado" });
+        }
+
+        if (!req.body.id) {
+            res.status(400);
+            res.json({ erro: "Informe o ID do agendamento" });
+        }
+
+        const conn = await db.connect();
+
+        const [deletedReserveCobs] = await conn.query(
+            `DELETE FROM cobrancas where idAgendamento = ?`,
+            [req.body.id]
+        );
+
+        const [deletedReserve] = await conn.query(
+            `DELETE FROM agendamentos where id = ?`,
+            [req.body.id]
+        );
+
+        conn.end(function (err) {
+            if (err) throw err;
+            else console.log("Closing connection.");
+        });
+
+        res.json("Ok");
+    } catch (e) {
+        console.error(e);
+        res.json({ erro: "Erro ao cancelar o agendamento ", e });
     }
 });
 
