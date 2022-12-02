@@ -9,6 +9,8 @@ if (process.env.NODE_ENV !== "production") {
 const db = require("../db");
 const moment = require("moment");
 const GNRequest = require("../gerencianet");
+const fetch = (...args) =>
+    import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 let DEFAULT_CLOSING_TIME_MORNING = "12:00";
 let DEFAULT_CLOSING_TIME_AFTERNOON = "18:30";
@@ -39,6 +41,52 @@ const alreadyHasProfessional = (timeReserved, timesReserved) => {
     return timesReserved.some((time) => {
         return time.id === timeReserved.id;
     });
+};
+
+const CITY_AND_STATE_DEFAULT_HOLIDAYS = ["04-11", "09-20", "01-20"];
+
+const getHolidays = async (year) => {
+    try {
+        if (isNaN(parseInt(year)) || year.toString().length !== 4) {
+            return;
+        }
+        const response = await fetch(
+            `https://brasilapi.com.br/api/feriados/v1/${year}`,
+            {
+                method: "GET",
+                mode: "cors",
+                headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json;charset=UTF-8",
+                },
+            }
+        );
+        const result = await response.json();
+        console.log(result);
+        const holidays = result.map((holiday) => {
+            return (
+                holiday.date.split("-")[1] + "-" + holiday.date.split("-")[2]
+            );
+        });
+        CITY_AND_STATE_DEFAULT_HOLIDAYS.forEach((holiday) => {
+            holidays.push(holiday);
+        });
+        return holidays;
+    } catch (e) {
+        console.error("Erro ao buscar os feriados nacionais", e);
+    }
+};
+
+const isHoliday = (date, holidays) => {
+    let formattedDate =
+        parseInt(date.getMonth() + 1).toLocaleString("en-US", {
+            minimumIntegerDigits: 2,
+        }) +
+        "-" +
+        parseInt(date.getDate()).toLocaleString("en-US", {
+            minimumIntegerDigits: 2,
+        });
+    return holidays.indexOf(formattedDate) > -1;
 };
 
 const checkPermission = async (token) => {
@@ -244,10 +292,15 @@ router.get("/horarios", async (req, res, next) => {
         let date = req.query.data;
         let timesReserved = [];
 
+        const holidays = await getHolidays(
+            new Date(date + "UTC-3").getFullYear()
+        );
+        console.log(holidays);
         const isValidDate = () => {
             return (
                 new Date(date + "UTC-3") >= new Date().setHours(0, 0, 0, 0) &&
-                new Date(date + "UTC-3").getDay() !== 0
+                new Date(date + "UTC-3").getDay() !== 0 &&
+                !isHoliday(new Date(date + "UTC-3"), holidays)
             );
         };
 
