@@ -339,6 +339,7 @@ router.get("/horarios", async (req, res, next) => {
         res.json(response);
     } catch (e) {
         console.error(e);
+        return res.json({ error: "Houve um problema na busca" });
     }
 });
 
@@ -692,6 +693,9 @@ router.get("/permission", async (req, res, next) => {
         res.json({});
     } catch (e) {
         console.error(e);
+        return res.json({
+            erro: "Ops! Ocorreu um problema. Tente novamente em alguns minutos",
+        });
     }
 });
 
