@@ -62,7 +62,6 @@ const getHolidays = async (year) => {
             }
         );
         const result = await response.json();
-        console.log(result);
         const holidays = result.map((holiday) => {
             return (
                 holiday.date.split("-")[1] + "-" + holiday.date.split("-")[2]
@@ -78,7 +77,6 @@ const getHolidays = async (year) => {
 };
 
 const isHoliday = (date, holidays) => {
-    console.log(date, holidays);
     let formattedDate =
         parseInt(date.getMonth() + 1).toLocaleString("en-US", {
             minimumIntegerDigits: 2,
@@ -296,7 +294,6 @@ router.get("/horarios", async (req, res, next) => {
         const holidays = await getHolidays(
             new Date(date + "UTC-3").getFullYear()
         );
-        console.log(holidays);
         const isValidDate = () => {
             return (
                 new Date(date + "UTC-3") >= new Date().setHours(0, 0, 0, 0) &&
