@@ -313,7 +313,7 @@ router.get("/clientes", async (req, res, next) => {
         const conn = await db.connect();
 
         const [clients] = await conn.query(
-            `SELECT id, nome, coalesce(email, emailGoogle) as 'email' from usuarios`
+            `SELECT id, nome, email, emailGoogle from usuarios`
         );
 
         conn.end(function (err) {

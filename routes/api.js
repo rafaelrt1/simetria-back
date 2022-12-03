@@ -78,6 +78,7 @@ const getHolidays = async (year) => {
 };
 
 const isHoliday = (date, holidays) => {
+    console.log(date, holidays);
     let formattedDate =
         parseInt(date.getMonth() + 1).toLocaleString("en-US", {
             minimumIntegerDigits: 2,
