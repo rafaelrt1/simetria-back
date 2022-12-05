@@ -848,7 +848,7 @@ router.get("/qrcode", async (req, res, next) => {
             valor: {
                 original: reservationInfos[0].valor.toString(),
             },
-            chave: "cf8ed2bb-fb36-47e1-9680-13329ccac4a3",
+            chave: "4ab9d867-ac8f-472f-a886-defe80cf3c20",
         };
 
         const cobResponse = await reqGN.post("/v2/cob", dataCob);
