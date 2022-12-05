@@ -886,6 +886,7 @@ router.get("/cobrancas", async (req, res, next) => {
 
 router.post("/webhook(/pix)?", async (req, res, next) => {
     const conn = await db.connect();
+    res.send("200");
 
     const txid = req.body.pix[0].txid;
 
@@ -903,8 +904,6 @@ router.post("/webhook(/pix)?", async (req, res, next) => {
         if (err) throw err;
         else console.log("Closing connection.");
     });
-
-    res.send("200");
 });
 
 module.exports = router;
