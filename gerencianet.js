@@ -17,7 +17,7 @@ const authenticate = ({ clientId, clientSecret }) => {
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString(
         "base64"
     );
-    console.log(credentials, agent, process.env.GN_ENDPOINT);
+
     return axios({
         method: "POST",
         url: `${process.env.GN_ENDPOINT}/oauth/token`,
@@ -33,8 +33,10 @@ const authenticate = ({ clientId, clientSecret }) => {
 };
 
 const GNRequest = async (credentials) => {
+    console.log(credentials);
     const authResponse = await authenticate(credentials);
     const accessToken = authResponse.data?.access_token;
+    console.log(authResponse, accessToken);
 
     return axios.create({
         baseURL: process.env.GN_ENDPOINT,
