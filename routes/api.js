@@ -848,7 +848,7 @@ router.get("/qrcode", async (req, res, next) => {
             valor: {
                 original: reservationInfos[0].valor.toString(),
             },
-            chave: "4ab9d867-ac8f-472f-a886-defe80cf3c20",
+            chave: "8d6bd27a-49aa-4567-aa78-38fe98964145",
         };
 
         const cobResponse = await reqGN.post("/v2/cob", dataCob);
@@ -886,7 +886,6 @@ router.get("/cobrancas", async (req, res, next) => {
 
 router.post("/webhook(/pix)?", async (req, res, next) => {
     const conn = await db.connect();
-    res.send("200");
 
     const txid = req.body.pix[0].txid;
 
@@ -904,6 +903,8 @@ router.post("/webhook(/pix)?", async (req, res, next) => {
         if (err) throw err;
         else console.log("Closing connection.");
     });
+
+    res.send("200");
 });
 
 module.exports = router;
