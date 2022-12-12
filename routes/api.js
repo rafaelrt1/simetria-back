@@ -189,6 +189,35 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
         return timeReserved.some((unavailableTime) => {
             let beginTimeReserved = moment(unavailableTime.begin);
             let endTimeReserved = moment(unavailableTime.end);
+            // console.log(`timeEnd: ${timeEnd}`);
+            // console.log(
+            //     `timeBegin: ${timeBegin}    beginTimeReserved: ${beginTimeReserved}    endTimeReserved: ${endTimeReserved}
+            //     result: ${timeBegin.isBetween(
+            //         beginTimeReserved,
+            //         endTimeReserved ||
+            //             timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
+            //             moment(timeBegin).isSame(beginTimeReserved)
+            //     )}`
+            // );
+            let newTime = timeBegin;
+            let result = false;
+            console.log(newTime === timeEnd);
+            for (i = 0; newTime < timeEnd; i++) {
+                console.log(newTime);
+                if (
+                    newTime.isBetween(beginTimeReserved, endTimeReserved) ||
+                    timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
+                    moment(newTime).isSame(beginTimeReserved)
+                ) {
+                    result = true;
+                }
+                newTime = timeBegin.add(30, "minutes");
+                // if (newTime === timeEnd) {
+                //     console.log("iGual");
+                // }
+            }
+            return result;
+
             return (
                 timeBegin.isBetween(beginTimeReserved, endTimeReserved) ||
                 timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
@@ -376,7 +405,7 @@ router.get("/horarios", async (req, res, next) => {
             });
         }
 
-        date = new Date(date + "UTC-3").setHours(10);
+        date = new Date(date + "UTC-3").setHours(0, 0, 0, 0);
         let response = await mountAvailableTimes(
             service,
             timesReserved,
@@ -619,7 +648,7 @@ router.post("/horario", async (req, res, next) => {
             });
         });
 
-        date = new Date(date + "UTC-3").setHours(10);
+        date = new Date(date + "UTC-3").setHours(0, 0, 0, 0);
         let response = await mountAvailableTimes(
             service,
             timesReserved,
