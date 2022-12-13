@@ -189,39 +189,36 @@ const getTimeOptions = (date, serviceDuration, timeReserved) => {
         return timeReserved.some((unavailableTime) => {
             let beginTimeReserved = moment(unavailableTime.begin);
             let endTimeReserved = moment(unavailableTime.end);
-            // console.log(`timeEnd: ${timeEnd}`);
-            // console.log(
-            //     `timeBegin: ${timeBegin}    beginTimeReserved: ${beginTimeReserved}    endTimeReserved: ${endTimeReserved}
-            //     result: ${timeBegin.isBetween(
-            //         beginTimeReserved,
-            //         endTimeReserved ||
-            //             timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
-            //             moment(timeBegin).isSame(beginTimeReserved)
-            //     )}`
-            // );
-            let newTime = timeBegin;
-            let result = false;
-            console.log(newTime === timeEnd);
-            for (i = 0; newTime < timeEnd; i++) {
-                console.log(newTime);
-                if (
-                    newTime.isBetween(beginTimeReserved, endTimeReserved) ||
-                    timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
-                    moment(newTime).isSame(beginTimeReserved)
-                ) {
-                    result = true;
-                }
-                newTime = timeBegin.add(30, "minutes");
-                // if (newTime === timeEnd) {
-                //     console.log("iGual");
-                // }
-            }
-            return result;
+
+            const checkTimeConflict = (
+                timeBegin,
+                timeEnd,
+                beginTimeReserved,
+                endTimeReserved
+            ) => {
+                console.log(
+                    timeBegin > beginTimeReserved && timeEnd > endTimeReserved
+                );
+                console.log(
+                    timeBegin < beginTimeReserved && timeEnd < endTimeReserved
+                );
+                return (
+                    (timeBegin > beginTimeReserved &&
+                        timeEnd > endTimeReserved) ||
+                    (timeBegin < beginTimeReserved && timeEnd < endTimeReserved)
+                );
+            };
 
             return (
                 timeBegin.isBetween(beginTimeReserved, endTimeReserved) ||
                 timeEnd.isBetween(beginTimeReserved, endTimeReserved) ||
-                moment(timeBegin).isSame(beginTimeReserved)
+                moment(timeBegin).isSame(beginTimeReserved) ||
+                !checkTimeConflict(
+                    timeBegin,
+                    timeEnd,
+                    beginTimeReserved,
+                    endTimeReserved
+                )
             );
         });
     };
@@ -489,7 +486,7 @@ router.delete("/reserva", async (req, res, next) => {
             );
 
             const [userReserves] = await conn.query(
-                `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ?;`,
+                `SELECT a.id, s.nome as 'servico', f.nome as 'profissional', a.dataInicio, a.dataFim, a.valor as 'preco', s.pagavel, a.pago, s.precoMaximo FROM funcionarios f join agendamentos a on f.id = a.idFuncionario join servicos s on s.id = a.idServico where a.cliente = ? order by a.id desc;`,
                 [user]
             );
 
